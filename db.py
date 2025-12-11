@@ -99,7 +99,9 @@ def save_short(short_id, channel_id, url, title, published, views, likes, commen
 
     db.commit()
     db.close()
-    
+
+
+# NEW FUNCTIONS BELOW
 
 def video_exists(video_id):
     db = get_db()
