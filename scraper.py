@@ -1,7 +1,4 @@
-import os
 import time
-import csv
-import json
 import logging
 from logging.handlers import RotatingFileHandler
 from selenium import webdriver
@@ -13,7 +10,10 @@ from selenium.common.exceptions import TimeoutException, WebDriverException
 from urllib.parse import urlparse, parse_qs
 import random
 
-from db import init_db, save_channel, save_video, save_short
+from db import init_db, save_channel, save_video, save_short, video_exists, short_exists
+
+# example URL
+URL = "https://www.youtube.com/@robmulla"
 
 log_formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
 log_handler = RotatingFileHandler("scraper.log", maxBytes=5*1024*1024, backupCount=5)
@@ -27,6 +27,9 @@ def scrape_basic_channel_details(channel_url):
     opts = Options()
     opts.add_argument("--disable-blink-features=AutomationControlled")
     opts.add_argument("--start-maximized")
+    opts.add_experimental_option("excludeSwitches", ["enable-automation"])
+    opts.add_experimental_option("useAutomationExtension", False)
+    opts.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0 Safari/537.36")
     # opts.add_argument("--headless")
     driver = webdriver.Chrome(options=opts)
     driver.get(channel_url)
@@ -84,11 +87,10 @@ def scraper_videos(channel_url, driver):
     driver.get(f"{channel_url}/videos")
 
     last_count = 0
-    scroll_pause = random.uniform(0.5, 2)
 
     while True:
         driver.execute_script("window.scrollTo(0, document.documentElement.scrollHeight);")
-        time.sleep(scroll_pause)
+        time.sleep(random.uniform(0.8, 2.2))
 
         video_links = driver.find_elements(By.CSS_SELECTOR, "a#video-title-link")
 
@@ -102,14 +104,20 @@ def scraper_videos(channel_url, driver):
     channel_id = channel_url.rstrip("/").split("@")[-1]
 
     for video_url in video_urls:
+        video_id = parse_qs(urlparse(video_url).query)['v'][0]
+
+        if video_exists(video_id):
+            continue
+
         driver.get(video_url)
-        time.sleep(random.randrange(2, 4))
+        time.sleep(random.randrange(2, 5))
 
         driver.execute_script("window.scrollBy(0, 300);")
 
-        video_id = parse_qs(urlparse(video_url).query)['v'][0]
-        title = driver.find_element(By.CSS_SELECTOR,
-                                    "h1.style-scope.ytd-watch-metadata yt-formatted-string").get_attribute("title")
+        title = driver.find_element(
+            By.CSS_SELECTOR,
+            "h1.style-scope.ytd-watch-metadata yt-formatted-string"
+        ).get_attribute("title")
 
         spans = [el.text.strip() for el in driver.find_element(
             By.CSS_SELECTOR, "yt-formatted-string#info"
@@ -118,12 +126,21 @@ def scraper_videos(channel_url, driver):
         published = spans[1]
         views = spans[0]
 
+        try:
+            expand_description = WebDriverWait(driver, 10).until(
+                EC.element_to_be_clickable((By.XPATH, '//*[@id="expand"]'))
+            )
+            expand_description.click()
+        except TimeoutException:
+            pass
+
         description = driver.find_element(
-            By.CSS_SELECTOR, "yt-attributed-string.style-scope.ytd-text-inline-expander"
+            By.CSS_SELECTOR, "#description-inline-expander > div:nth-child(1)"
         ).text
 
         likes = driver.find_element(
-            By.CSS_SELECTOR, "button[aria-label^='like this video'] div.yt-spec-button-shape-next__button-text-content"
+            By.CSS_SELECTOR,
+            "button[aria-label^='like this video'] div.yt-spec-button-shape-next__button-text-content"
         ).text
 
         comments = WebDriverWait(driver, 10).until(
@@ -152,11 +169,10 @@ def scrape_shorts(channel_url, driver):
     driver.get(f"{channel_url}/shorts")
 
     last_count = 0
-    scroll_pause = random.uniform(0.5, 2)
 
     while True:
         driver.execute_script("window.scrollTo(0, document.documentElement.scrollHeight);")
-        time.sleep(scroll_pause)
+        time.sleep(random.uniform(0.8, 2.2))
 
         shorts_links = driver.find_elements(By.CSS_SELECTOR, "a.shortsLockupViewModelHostEndpoint.reel-item-endpoint")
 
@@ -170,19 +186,27 @@ def scrape_shorts(channel_url, driver):
     channel_id = channel_url.rstrip("/").split("@")[-1]
 
     for short_url in shorts_urls:
-        driver.get(short_url)
-        time.sleep(random.randrange(2, 4))
-
         short_id = urlparse(short_url).path.rstrip("/").split("/")[-1]
 
-        title = driver.find_element(By.CSS_SELECTOR,
-                                    "h2.ytShortsVideoTitleViewModelShortsVideoTitle span").text
+        if short_exists(short_id):
+            continue
 
-        published = driver.find_element(By.CSS_SELECTOR,
-                                        "meta[itemprop='datePublished']").get_attribute("content")
+        driver.get(short_url)
+        time.sleep(random.randrange(2, 5))
+
+        title = driver.find_element(
+            By.CSS_SELECTOR,
+            "h2.ytShortsVideoTitleViewModelShortsVideoTitle span"
+        ).text
+
+        published = driver.find_element(
+            By.CSS_SELECTOR,
+            "meta[itemprop='datePublished']"
+        ).get_attribute("content")
 
         views = driver.find_element(
-            By.CSS_SELECTOR, "div.ytwFactoidRendererFactoid[aria-label$='views']"
+            By.CSS_SELECTOR,
+            "div.ytwFactoidRendererFactoid[aria-label$='views']"
         ).get_attribute("aria-label").split()[0]
 
         description = driver.find_element(
@@ -190,11 +214,13 @@ def scrape_shorts(channel_url, driver):
         ).get_attribute("content")
 
         likes = driver.find_element(
-            By.CSS_SELECTOR, "button-view-model .yt-spec-button-shape-with-label__label span"
+            By.CSS_SELECTOR,
+            "button-view-model .yt-spec-button-shape-with-label__label span"
         ).text
 
         comments = driver.find_element(
-            By.CSS_SELECTOR, "button[aria-label*='comment'] + div span"
+            By.CSS_SELECTOR,
+            "button[aria-label*='comment'] + div span"
         ).text
 
         save_short(
@@ -215,8 +241,7 @@ def scrape_shorts(channel_url, driver):
 
 if __name__ == "__main__":
     init_db()
-    url = "https://www.youtube.com/@BrightData"
 
-    channel_id, driver = scrape_basic_channel_details(url)
-    scraper_videos(url, driver)
-    scrape_shorts(url, driver)
+    channel_id, driver = scrape_basic_channel_details(URL)
+    scraper_videos(URL, driver)
+    scrape_shorts(URL, driver)
