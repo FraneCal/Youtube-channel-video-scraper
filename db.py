@@ -99,3 +99,21 @@ def save_short(short_id, channel_id, url, title, published, views, likes, commen
 
     db.commit()
     db.close()
+    
+
+def video_exists(video_id):
+    db = get_db()
+    cur = db.cursor()
+    cur.execute("SELECT 1 FROM videos WHERE video_id = ?", (video_id,))
+    exists = cur.fetchone() is not None
+    db.close()
+    return exists
+
+
+def short_exists(short_id):
+    db = get_db()
+    cur = db.cursor()
+    cur.execute("SELECT 1 FROM shorts WHERE short_id = ?", (short_id,))
+    exists = cur.fetchone() is not None
+    db.close()
+    return exists
