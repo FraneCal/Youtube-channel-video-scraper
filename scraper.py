@@ -89,7 +89,7 @@ def scraper_videos(channel_url, driver):
 
     while True:
         driver.execute_script("window.scrollTo(0, document.documentElement.scrollHeight);")
-        time.sleep(random.uniform(0.8, 2.2))
+        time.sleep(random.uniform(1.2, 2.2))
 
         video_links = driver.find_elements(By.CSS_SELECTOR, "a#video-title-link")
 
@@ -183,7 +183,7 @@ def scrape_shorts(channel_url, driver):
 
     while True:
         driver.execute_script("window.scrollTo(0, document.documentElement.scrollHeight);")
-        time.sleep(random.uniform(0.8, 2.2))
+        time.sleep(random.uniform(1.2, 2.2))
 
         shorts_links = driver.find_elements(By.CSS_SELECTOR, "a.shortsLockupViewModelHostEndpoint.reel-item-endpoint")
 
