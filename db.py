@@ -25,33 +25,35 @@ def init_db():
 
     cur.execute("""
     CREATE TABLE IF NOT EXISTS videos (
-        video_id TEXT PRIMARY KEY,
-        channel_id TEXT,
-        url TEXT,
-        title TEXT,
-        published TEXT,
-        views TEXT,
-        likes TEXT,
-        comments TEXT,
-        description TEXT,
-        type TEXT,
-        FOREIGN KEY(channel_id) REFERENCES channels(channel_id)
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    video_id TEXT UNIQUE,
+    channel_id TEXT,
+    url TEXT,
+    title TEXT,
+    published TEXT,
+    views TEXT,
+    likes TEXT,
+    comments TEXT,
+    description TEXT,
+    type TEXT,
+    FOREIGN KEY(channel_id) REFERENCES channels(channel_id)
     )
     """)
 
     cur.execute("""
     CREATE TABLE IF NOT EXISTS shorts (
-        short_id TEXT PRIMARY KEY,
-        channel_id TEXT,
-        url TEXT,
-        title TEXT,
-        published TEXT,
-        views TEXT,
-        likes TEXT,
-        comments TEXT,
-        description TEXT,
-        type TEXT,
-        FOREIGN KEY(channel_id) REFERENCES channels(channel_id)
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    short_id TEXT UNIQUE,
+    channel_id TEXT,
+    url TEXT,
+    title TEXT,
+    published TEXT,
+    views TEXT,
+    likes TEXT,
+    comments TEXT,
+    description TEXT,
+    type TEXT,
+    FOREIGN KEY(channel_id) REFERENCES channels(channel_id)
     )
     """)
 
